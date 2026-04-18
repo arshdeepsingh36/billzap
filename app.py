@@ -9,6 +9,13 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///billing.db'
 app.config['SECRET_KEY'] = 'billing-secret-key'
 db = SQLAlchemy(app)
 
+# This runs on Azure startup
+with app.app_context():
+    try:
+        db.create_all()
+    except:
+        pass
+
 class Plan(db.Model):
     id        = db.Column(db.Integer, primary_key=True)
     name      = db.Column(db.String(100), nullable=False)

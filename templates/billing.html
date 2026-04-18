@@ -58,7 +58,8 @@
           <td><span class="badge bg-{{ 'success' if inv.status=='paid' else 'warning text-dark' }}">{{ inv.status }}</span></td>
           <td>
             {% if inv.status == 'pending' %}
-            <a href="/pay/{{ inv.id }}" class="btn btn-sm btn-outline-success">Mark Paid</a>
+            <a href="/checkout/{{ inv.id }}" class="btn btn-sm btn-outline-success">Pay with Stripe</a>
+<a href="/pay/{{ inv.id }}" class="btn btn-sm btn-outline-secondary">Mark Paid</a>
             {% else %}
             <span class="text-muted">✓ Paid</span>
             {% endif %}

@@ -114,7 +114,26 @@ def reports():
     return render_template('reports.html',
         invoices=invoices, customers=customers,
         plans=plans, monthly=monthly)
-
+@app.route('/checkout/<int:inv_id>')
+def checkout(inv_id):
+    inv = Invoice.query.get_or_404(inv_id)
+    session = stripe.checkout.Session.create(
+        payment_method_types=['card'],
+        line_items=[{
+            'price_data': {
+                'currency': 'usd',
+                'product_data': {
+                    'name': f'Invoice {inv.invoice_no} - {inv.customer.name}',
+                },
+                'unit_amount': int(inv.amount * 100),
+            },
+            'quantity': 1,
+        }],
+        mode='payment',
+        success_url=request.host_url + f'pay/{inv_id}',
+        cancel_url=request.host_url + 'billing',
+    )
+    return redirect(session.url)
 @app.route('/seed')
 def seed():
     db.drop_all(); db.create_all()

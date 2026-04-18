@@ -2,7 +2,8 @@ from flask import Flask, render_template, request, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 import random, string
-
+import stripe
+stripe.api_key = 'sk_test_51TNXTaJB7ze9VgSgonG2TAxTMJIw6M0YFDKiwKAZu8MlK1cYj1ckBLgalgWlsR0kiGBkLGBExLXmekmO8CMuexmY003Bez9qXb'
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///billing.db'
 app.config['SECRET_KEY'] = 'billing-secret-key'
@@ -139,6 +140,25 @@ def seed():
 
 with app.app_context():
     db.create_all()
-
+@app.route('/checkout/<int:inv_id>')
+def checkout(inv_id):
+    inv = Invoice.query.get_or_404(inv_id)
+    session = stripe.checkout.Session.create(
+        payment_method_types=['card'],
+        line_items=[{
+            'price_data': {
+                'currency': 'usd',
+                'product_data': {
+                    'name': f'Invoice {inv.invoice_no} - {inv.customer.name}',
+                },
+                'unit_amount': int(inv.amount * 100),
+            },
+            'quantity': 1,
+        }],
+        mode='payment',
+        success_url=request.host_url + f'pay/{inv_id}',
+        cancel_url=request.host_url + 'billing',
+    )
+    return redirect(session.url)
 if __name__ == '__main__':
     app.run(debug=True)

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Reports</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    body{background:#f8f9fa;}
+    .sidebar{background:#1a1a2e;min-height:100vh;padding:20px;}
+    .sidebar a{color:#aaa;display:block;padding:10px 15px;border-radius:8px;text-decoration:none;margin-bottom:4px;}
+    .sidebar a:hover{background:#16213e;color:#fff;}
+    .sidebar h4{color:#fff;padding:10px 15px;margin-bottom:20px;font-size:18px;}
+    .card{border:none;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.06);}
+  </style>
+</head>
+<body>
+<div class="d-flex">
+  <div class="sidebar" style="width:220px;min-width:220px;">
+    <h4>☁ BillCloud</h4>
+    <a href="/">📊 Dashboard</a>
+    <a href="/plans">📦 Plans</a>
+    <a href="/customers">👥 Customers</a>
+    <a href="/billing">💳 Billing</a>
+    <a href="/reports" style="background:#16213e;color:#fff;">📈 Reports</a>
+  </div>
+  <div class="flex-grow-1 p-4">
+    <h2 class="mb-4">Reports & Analytics</h2>
+    <div class="row g-3 mb-4">
+      <div class="col-md-4">
+        <div class="card p-3 text-center">
+          <div class="text-muted mb-1">Total Paid</div>
+          <div style="font-size:24px;font-weight:700;color:#11998e;">
+            ${{ "%.2f"|format(invoices|selectattr('status','eq','paid')|sum(attribute='amount')) }}
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card p-3 text-center">
+          <div class="text-muted mb-1">Total Pending</div>
+          <div style="font-size:24px;font-weight:700;color:#f7971e;">
+            ${{ "%.2f"|format(invoices|selectattr('status','eq','pending')|sum(attribute='amount')) }}
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card p-3 text-center">
+          <div class="text-muted mb-1">Total Customers</div>
+          <div style="font-size:24px;font-weight:700;color:#667eea;">{{ customers|length }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="card p-4 mb-4">
+      <h6 class="mb-3">Monthly Revenue</h6>
+      <div style="position:relative;height:280px;">
+        <canvas id="revChart"></canvas>
+      </div>
+    </div>
+    <div class="card p-3">
+      <h6 class="mb-3">Invoice Log</h6>
+      <table class="table table-sm">
+        <thead>
+          <tr><th>Invoice</th><th>Customer</th><th>Plan</th><th>Amount</th><th>Status</th><th>Date</th></tr>
+        </thead>
+        <tbody>
+        {% for inv in invoices %}
+        <tr>
+          <td>{{ inv.invoice_no }}</td>
+          <td>{{ inv.customer.name }}</td>
+          <td>{{ inv.customer.plan.name if inv.customer.plan else '-' }}</td>
+          <td>${{ "%.2f"|format(inv.amount) }}</td>
+          <td><span class="badge bg-{{ 'success' if inv.status=='paid' else 'warning text-dark' }}">{{ inv.status }}</span></td>
+          <td>{{ inv.issued_date.strftime('%d %b %Y') }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<script>
+  const labels = {{ monthly.keys()|list|tojson }};
+  const data   = {{ monthly.values()|list|tojson }};
+  new Chart(document.getElementById('revChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets:[{
+        label: 'Revenue ($)',
+        data,
+        backgroundColor: '#667eea',
+        borderRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins:{ legend:{ display:false } }
+    }
+  });
+</script>
+</body>
+</html>

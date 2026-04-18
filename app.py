@@ -138,8 +138,7 @@ def seed():
     db.session.commit()
     return redirect('/')
 
-with app.app_context():
-    db.create_all()
+
 @app.route('/checkout/<int:inv_id>')
 def checkout(inv_id):
     inv = Invoice.query.get_or_404(inv_id)
@@ -161,4 +160,6 @@ def checkout(inv_id):
     )
     return redirect(session.url)
 if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()
     app.run(debug=True)

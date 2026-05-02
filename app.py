@@ -160,7 +160,23 @@ def customers():
         return redirect(url_for('customers'))
     return render_template('customers.html',
         customers=Customer.query.all(), plans=Plan.query.all())
+db.session.commit()
 
+# Auto generate first invoice
+new_customer = Customer.query.filter_by(email=email).first()
+if new_customer and new_customer.plan_id:
+    inv = Invoice(
+        invoice_no  = 'INV-' + ''.join(random.choices(string.digits, k=6)),
+        customer_id = new_customer.id,
+        amount      = new_customer.plan.price,
+        status      = 'pending',
+        due_date    = datetime.utcnow() + timedelta(days=30)
+    )
+    db.session.add(inv)
+    db.session.commit()
+
+login_user(user)
+return redirect(url_for('customer_dashboard'))
 @app.route('/admin/billing', methods=['GET', 'POST'])
 @admin_required
 def billing():

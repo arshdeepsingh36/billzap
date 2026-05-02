@@ -96,9 +96,12 @@ def load_user(user_id):
 # ── Public Routes ─────────────────────────────────────────────
 @app.route('/')
 def index():
+    if current_user.is_authenticated:
+        if current_user.role == 'admin':
+            return redirect(url_for('admin_dashboard'))
+        return redirect(url_for('customer_dashboard'))
     plans = Plan.query.all()
     return render_template('index.html', plans=plans)
-
 # ── Admin Auth ────────────────────────────────────────────────
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():

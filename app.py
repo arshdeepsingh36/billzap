@@ -1,4 +1,4 @@
-# BillZap - Cloud Billing App v3
+# BillZap - Cloud Billing App v4
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
@@ -102,6 +102,7 @@ def index():
         return redirect(url_for('customer_dashboard'))
     plans = Plan.query.all()
     return render_template('index.html', plans=plans)
+
 # ── Admin Auth ────────────────────────────────────────────────
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
@@ -131,8 +132,9 @@ def admin_dashboard():
     plans     = Plan.query.all()
     total_rev = sum(i.amount for i in invoices if i.status == 'paid')
     pending   = sum(i.amount for i in invoices if i.status == 'pending')
+    users     = User.query.filter_by(role='customer').all()
     return render_template('dashboard.html',
-        customers=customers, invoices=invoices,
+        customers=customers, invoices=invoices, users=users,
         plans=plans, total_rev=total_rev, pending=pending)
 
 @app.route('/admin/plans', methods=['GET', 'POST'])
@@ -160,23 +162,7 @@ def customers():
         return redirect(url_for('customers'))
     return render_template('customers.html',
         customers=Customer.query.all(), plans=Plan.query.all())
-db.session.commit()
 
-# Auto generate first invoice
-new_customer = Customer.query.filter_by(email=email).first()
-if new_customer and new_customer.plan_id:
-    inv = Invoice(
-        invoice_no  = 'INV-' + ''.join(random.choices(string.digits, k=6)),
-        customer_id = new_customer.id,
-        amount      = new_customer.plan.price,
-        status      = 'pending',
-        due_date    = datetime.utcnow() + timedelta(days=30)
-    )
-    db.session.add(inv)
-    db.session.commit()
-
-login_user(user)
-return redirect(url_for('customer_dashboard'))
 @app.route('/admin/billing', methods=['GET', 'POST'])
 @admin_required
 def billing():
@@ -240,9 +226,12 @@ def register():
         email    = request.form['email']
         password = request.form['password']
         plan_id  = request.form.get('plan_id')
+
         if User.query.filter_by(email=email).first():
             flash('Email already registered', 'error')
             return redirect(url_for('register'))
+
+        # Create user
         user = User(
             name          = name,
             email         = email,
@@ -250,6 +239,10 @@ def register():
             role          = 'customer'
         )
         db.session.add(user)
+        db.session.flush()
+
+        # Create customer record
+        customer = None
         if not Customer.query.filter_by(email=email).first():
             customer = Customer(
                 name    = name,
@@ -257,9 +250,27 @@ def register():
                 plan_id = int(plan_id) if plan_id else None
             )
             db.session.add(customer)
+            db.session.flush()
+
         db.session.commit()
+
+        # Auto generate first invoice
+        customer = Customer.query.filter_by(email=email).first()
+        if customer and customer.plan_id:
+            inv = Invoice(
+                invoice_no  = 'INV-' + ''.join(random.choices(string.digits, k=6)),
+                customer_id = customer.id,
+                amount      = customer.plan.price,
+                status      = 'pending',
+                due_date    = datetime.utcnow() + timedelta(days=30)
+            )
+            db.session.add(inv)
+            db.session.commit()
+
         login_user(user)
+        flash('Account created! Please complete your payment.', 'success')
         return redirect(url_for('customer_dashboard'))
+
     plans = Plan.query.all()
     return render_template('register.html', plans=plans)
 
@@ -273,9 +284,13 @@ def logout():
 @customer_required
 def customer_dashboard():
     customer = Customer.query.filter_by(email=current_user.email).first()
-    invoices = Invoice.query.filter_by(customer_id=customer.id).all() if customer else []
+    invoices = Invoice.query.filter_by(
+        customer_id=customer.id).order_by(
+        Invoice.issued_date.desc()).all() if customer else []
+    pending_invoices = [i for i in invoices if i.status == 'pending']
     return render_template('customer_dashboard.html',
-        customer=customer, invoices=invoices, user=current_user)
+        customer=customer, invoices=invoices,
+        pending_invoices=pending_invoices, user=current_user)
 
 @app.route('/my-invoices')
 @customer_required
@@ -342,7 +357,6 @@ def seed():
         Customer(name='David Lee',     email='david@example.com', plan_id=plans[1].id),
     ]
     db.session.add_all(customers); db.session.flush()
-    # Customer user accounts
     for c in customers:
         user = User(
             name          = c.name,

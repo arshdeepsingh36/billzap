@@ -18,7 +18,6 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'customer_login'
 
-# ── Security Decorators ──────────────────────────────────────
 def admin_required(f):
     @functools.wraps(f)
     def decorated(*args, **kwargs):
@@ -38,7 +37,6 @@ def customer_required(f):
         return f(*args, **kwargs)
     return decorated
 
-# ── Models ───────────────────────────────────────────────────
 class User(UserMixin, db.Model):
     id            = db.Column(db.Integer, primary_key=True)
     name          = db.Column(db.String(100), nullable=False)
@@ -93,7 +91,7 @@ with app.app_context():
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# ── Public Routes ─────────────────────────────────────────────
+# ── Public ────────────────────────────────────────────────────
 @app.route('/')
 def index():
     if current_user.is_authenticated:
@@ -226,12 +224,9 @@ def register():
         email    = request.form['email']
         password = request.form['password']
         plan_id  = request.form.get('plan_id')
-
         if User.query.filter_by(email=email).first():
             flash('Email already registered', 'error')
             return redirect(url_for('register'))
-
-        # Create user
         user = User(
             name          = name,
             email         = email,
@@ -240,8 +235,6 @@ def register():
         )
         db.session.add(user)
         db.session.flush()
-
-        # Create customer record
         customer = None
         if not Customer.query.filter_by(email=email).first():
             customer = Customer(
@@ -251,10 +244,7 @@ def register():
             )
             db.session.add(customer)
             db.session.flush()
-
         db.session.commit()
-
-        # Auto generate first invoice
         customer = Customer.query.filter_by(email=email).first()
         if customer and customer.plan_id:
             inv = Invoice(
@@ -266,11 +256,9 @@ def register():
             )
             db.session.add(inv)
             db.session.commit()
-
         login_user(user)
-        flash('Account created! Please complete your payment.', 'success')
-        return redirect(url_for('customer_dashboard'))
-
+        flash('Account created! Please complete your payment to access your dashboard.', 'success')
+        return redirect(url_for('payment_required'))
     plans = Plan.query.all()
     return render_template('register.html', plans=plans)
 
@@ -280,14 +268,27 @@ def logout():
     return redirect(url_for('index'))
 
 # ── Customer Routes ───────────────────────────────────────────
+@app.route('/payment-required')
+@customer_required
+def payment_required():
+    customer = Customer.query.filter_by(email=current_user.email).first()
+    invoices = Invoice.query.filter_by(
+        customer_id=customer.id,
+        status='pending').all() if customer else []
+    return render_template('payment_required.html',
+        customer=customer, invoices=invoices, user=current_user)
+
 @app.route('/my-dashboard')
 @customer_required
 def customer_dashboard():
     customer = Customer.query.filter_by(email=current_user.email).first()
-    invoices = Invoice.query.filter_by(
-        customer_id=customer.id).order_by(
-        Invoice.issued_date.desc()).all() if customer else []
+    if not customer:
+        return redirect(url_for('logout'))
+    invoices         = Invoice.query.filter_by(customer_id=customer.id).order_by(Invoice.issued_date.desc()).all()
     pending_invoices = [i for i in invoices if i.status == 'pending']
+    paid_invoices    = [i for i in invoices if i.status == 'paid']
+    if not paid_invoices and pending_invoices:
+        return redirect(url_for('payment_required'))
     return render_template('customer_dashboard.html',
         customer=customer, invoices=invoices,
         pending_invoices=pending_invoices, user=current_user)
@@ -301,6 +302,45 @@ def my_invoices():
         Invoice.issued_date.desc()).all() if customer else []
     return render_template('my_invoices.html',
         invoices=invoices, customer=customer)
+
+@app.route('/content')
+@customer_required
+def content():
+    customer = Customer.query.filter_by(email=current_user.email).first()
+    if not customer:
+        return redirect(url_for('logout'))
+    invoices  = Invoice.query.filter_by(customer_id=customer.id).all()
+    paid      = any(i.status == 'paid' for i in invoices)
+    if not paid:
+        return redirect(url_for('payment_required'))
+    plan_name = customer.plan.name if customer.plan else 'Starter'
+    all_plans = Plan.query.all()
+    next_plan = None
+    for i, p in enumerate(sorted(all_plans, key=lambda x: x.price)):
+        if customer.plan and p.id == customer.plan.id and i + 1 < len(all_plans):
+            next_plan = sorted(all_plans, key=lambda x: x.price)[i + 1]
+    return render_template('content.html',
+        customer=customer, plan_name=plan_name,
+        next_plan=next_plan, user=current_user)
+
+@app.route('/upgrade/<int:plan_id>')
+@customer_required
+def upgrade(plan_id):
+    customer  = Customer.query.filter_by(email=current_user.email).first()
+    new_plan  = Plan.query.get_or_404(plan_id)
+    if customer:
+        customer.plan_id = plan_id
+        inv = Invoice(
+            invoice_no  = 'INV-' + ''.join(random.choices(string.digits, k=6)),
+            customer_id = customer.id,
+            amount      = new_plan.price,
+            status      = 'pending',
+            due_date    = datetime.utcnow() + timedelta(days=30)
+        )
+        db.session.add(inv)
+        db.session.commit()
+        flash(f'Upgraded to {new_plan.name}! Please complete payment.', 'success')
+    return redirect(url_for('payment_required'))
 
 @app.route('/checkout/<int:inv_id>')
 @customer_required
@@ -320,7 +360,7 @@ def checkout(inv_id):
         }],
         mode='payment',
         success_url=request.host_url + f'pay/{inv_id}',
-        cancel_url=request.host_url + 'my-invoices',
+        cancel_url=request.host_url + 'payment-required',
     )
     return redirect(stripe_session.url)
 
@@ -331,7 +371,8 @@ def pay_success(inv_id):
     inv.status    = 'paid'
     inv.paid_date = datetime.utcnow()
     db.session.commit()
-    return redirect(url_for('my_invoices'))
+    flash('Payment successful! Welcome to BillZap!', 'success')
+    return redirect(url_for('customer_dashboard'))
 
 # ── Seed ──────────────────────────────────────────────────────
 @app.route('/seed')

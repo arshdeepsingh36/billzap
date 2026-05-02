@@ -1,3 +1,6 @@
 flask
 flask-sqlalchemy
+flask-login
+werkzeug
 gunicorn
+stripe

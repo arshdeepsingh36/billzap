@@ -16,12 +16,14 @@
 <div class="d-flex">
   <div class="sidebar" style="width:220px;min-width:220px;">
     <h4>☁ BillCloud</h4>
-    <a href="/">📊 Dashboard</a>
-    <a href="/plans">📦 Plans</a>
-    <a href="/customers">👥 Customers</a>
-    <a href="/billing" style="background:#16213e;color:#fff;">💳 Billing</a>
-    <a href="/reports">📈 Reports</a>
-  </div>
+    <a href="/admin/dashboard">📊 Dashboard</a>
+    <a href="/admin/plans">📦 Plans</a>
+    <a href="/admin/customers">👥 Customers</a>
+    <a href="/admin/billing" style="background:#16213e;color:#fff;">💳 Billing</a>
+    <a href="/admin/reports">📈 Reports</a>
+    <hr style="border-color:#333; margin:20px 0;">
+    <a href="/admin/logout" style="color:#f45c43;">🚪 Logout</a>
+</div>
   <div class="flex-grow-1 p-4">
     <h2 class="mb-4">Billing & Invoices</h2>
     <div class="card p-4 mb-4">
@@ -58,8 +60,7 @@
           <td><span class="badge bg-{{ 'success' if inv.status=='paid' else 'warning text-dark' }}">{{ inv.status }}</span></td>
           <td>
             {% if inv.status == 'pending' %}
-          <a href="/checkout/{{ inv.id }}" class="btn btn-sm btn-outline-success">Pay with Stripe</a>
-<a href="/pay/{{ inv.id }}" class="btn btn-sm btn-outline-secondary">Mark Paid</a>
+           <a href="/admin/pay/{{ inv.id }}" class="btn btn-sm btn-outline-success">Mark Paid</a>
             {% else %}
             <span class="text-muted">✓ Paid</span>
             {% endif %}

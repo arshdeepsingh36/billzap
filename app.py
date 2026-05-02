@@ -1,18 +1,51 @@
-# BillZap - Cloud Billing App v2
-from flask import Flask, render_template, request, redirect, url_for
+# BillZap - Cloud Billing App v3
+from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
-import random, string, os
+import random, string, os, functools
 import stripe
-stripe.api_key = 'sk_test_51TNXTaJB7ze9VgSgonG2TAxTMJIw6M0YFDKiwKAZu8MlK1cYj1ckBLgalgWlsR0kiGBkLGBExLXmekmO8CMuexmY003Bez9qXb'
 
 app = Flask(__name__)
-
-# Use /home for persistent storage on Azure
-db_path = os.path.join('/home', 'billing.db')
+db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'billing.db')
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
-app.config['SECRET_KEY'] = 'billing-secret-key'
+app.config['SECRET_KEY'] = 'billzap-secret-key-2026'
 db = SQLAlchemy(app)
+stripe.api_key = 'sk_test_51TNXTaJB7ze9VgSgonG2TAxTMJIw6M0YFDKiwKAZu8MlK1cYj1ckBLgalgWlsR0kiGBkLGBExLXmekmO8CMuexmY003Bez9qXb'
+
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'customer_login'
+
+# ── Security Decorators ──────────────────────────────────────
+def admin_required(f):
+    @functools.wraps(f)
+    def decorated(*args, **kwargs):
+        if not current_user.is_authenticated or current_user.role != 'admin':
+            flash('Admin access required', 'error')
+            return redirect(url_for('admin_login'))
+        return f(*args, **kwargs)
+    return decorated
+
+def customer_required(f):
+    @functools.wraps(f)
+    def decorated(*args, **kwargs):
+        if not current_user.is_authenticated:
+            return redirect(url_for('customer_login'))
+        if current_user.role == 'admin':
+            return redirect(url_for('admin_dashboard'))
+        return f(*args, **kwargs)
+    return decorated
+
+# ── Models ───────────────────────────────────────────────────
+class User(UserMixin, db.Model):
+    id            = db.Column(db.Integer, primary_key=True)
+    name          = db.Column(db.String(100), nullable=False)
+    email         = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(256), nullable=False)
+    role          = db.Column(db.String(20), default='customer')
+    created_at    = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Plan(db.Model):
     id        = db.Column(db.Integer, primary_key=True)
@@ -42,10 +75,54 @@ class Invoice(db.Model):
     paid_date   = db.Column(db.DateTime)
 
 with app.app_context():
-    db.create_all()
+    try:
+        db.create_all()
+        if not User.query.filter_by(email='admin@billzap.com').first():
+            admin = User(
+                name          = 'BillZap Admin',
+                email         = 'admin@billzap.com',
+                password_hash = generate_password_hash('Admin@1234'),
+                role          = 'admin'
+            )
+            db.session.add(admin)
+            db.session.commit()
+    except Exception as e:
+        print(f"Startup error: {e}")
 
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+# ── Public Routes ─────────────────────────────────────────────
 @app.route('/')
-def dashboard():
+def index():
+    plans = Plan.query.all()
+    return render_template('index.html', plans=plans)
+
+# ── Admin Auth ────────────────────────────────────────────────
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    if current_user.is_authenticated and current_user.role == 'admin':
+        return redirect(url_for('admin_dashboard'))
+    if request.method == 'POST':
+        email    = request.form['email']
+        password = request.form['password']
+        user     = User.query.filter_by(email=email, role='admin').first()
+        if user and check_password_hash(user.password_hash, password):
+            login_user(user)
+            return redirect(url_for('admin_dashboard'))
+        flash('Invalid admin credentials', 'error')
+    return render_template('admin_login.html')
+
+@app.route('/admin/logout')
+def admin_logout():
+    logout_user()
+    return redirect(url_for('admin_login'))
+
+# ── Admin Routes ──────────────────────────────────────────────
+@app.route('/admin/dashboard')
+@admin_required
+def admin_dashboard():
     customers = Customer.query.all()
     invoices  = Invoice.query.all()
     plans     = Plan.query.all()
@@ -55,29 +132,34 @@ def dashboard():
         customers=customers, invoices=invoices,
         plans=plans, total_rev=total_rev, pending=pending)
 
-@app.route('/plans', methods=['GET','POST'])
+@app.route('/admin/plans', methods=['GET', 'POST'])
+@admin_required
 def plans():
     if request.method == 'POST':
-        p = Plan(name=request.form['name'],
-                 price=float(request.form['price']),
-                 interval=request.form['interval'],
-                 features=request.form['features'])
+        p = Plan(
+            name     = request.form['name'],
+            price    = float(request.form['price']),
+            interval = request.form['interval'],
+            features = request.form['features'])
         db.session.add(p); db.session.commit()
         return redirect(url_for('plans'))
     return render_template('plans.html', plans=Plan.query.all())
 
-@app.route('/customers', methods=['GET','POST'])
+@app.route('/admin/customers', methods=['GET', 'POST'])
+@admin_required
 def customers():
     if request.method == 'POST':
-        c = Customer(name=request.form['name'],
-                     email=request.form['email'],
-                     plan_id=int(request.form['plan_id']))
+        c = Customer(
+            name    = request.form['name'],
+            email   = request.form['email'],
+            plan_id = int(request.form['plan_id']))
         db.session.add(c); db.session.commit()
         return redirect(url_for('customers'))
     return render_template('customers.html',
         customers=Customer.query.all(), plans=Plan.query.all())
 
-@app.route('/billing', methods=['GET','POST'])
+@app.route('/admin/billing', methods=['GET', 'POST'])
+@admin_required
 def billing():
     if request.method == 'POST':
         cid = int(request.form['customer_id'])
@@ -94,15 +176,8 @@ def billing():
         invoices=Invoice.query.order_by(Invoice.issued_date.desc()).all(),
         customers=Customer.query.filter_by(status='active').all())
 
-@app.route('/pay/<int:inv_id>')
-def pay_invoice(inv_id):
-    inv = Invoice.query.get_or_404(inv_id)
-    inv.status    = 'paid'
-    inv.paid_date = datetime.utcnow()
-    db.session.commit()
-    return redirect(url_for('billing'))
-
-@app.route('/reports')
+@app.route('/admin/reports')
+@admin_required
 def reports():
     invoices  = Invoice.query.all()
     customers = Customer.query.all()
@@ -110,14 +185,94 @@ def reports():
     monthly   = {}
     for inv in invoices:
         key = inv.issued_date.strftime('%b %Y')
-        monthly[key] = monthly.get(key, 0) + (inv.amount if inv.status=='paid' else 0)
+        monthly[key] = monthly.get(key, 0) + (inv.amount if inv.status == 'paid' else 0)
     return render_template('reports.html',
         invoices=invoices, customers=customers,
         plans=plans, monthly=monthly)
+
+@app.route('/admin/pay/<int:inv_id>')
+@admin_required
+def pay_invoice(inv_id):
+    inv           = Invoice.query.get_or_404(inv_id)
+    inv.status    = 'paid'
+    inv.paid_date = datetime.utcnow()
+    db.session.commit()
+    return redirect(url_for('billing'))
+
+# ── Customer Auth ─────────────────────────────────────────────
+@app.route('/login', methods=['GET', 'POST'])
+def customer_login():
+    if current_user.is_authenticated and current_user.role == 'customer':
+        return redirect(url_for('customer_dashboard'))
+    if request.method == 'POST':
+        email    = request.form['email']
+        password = request.form['password']
+        user     = User.query.filter_by(email=email, role='customer').first()
+        if user and check_password_hash(user.password_hash, password):
+            login_user(user)
+            return redirect(url_for('customer_dashboard'))
+        flash('Invalid email or password', 'error')
+    return render_template('login.html')
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        name     = request.form['name']
+        email    = request.form['email']
+        password = request.form['password']
+        plan_id  = request.form.get('plan_id')
+        if User.query.filter_by(email=email).first():
+            flash('Email already registered', 'error')
+            return redirect(url_for('register'))
+        user = User(
+            name          = name,
+            email         = email,
+            password_hash = generate_password_hash(password),
+            role          = 'customer'
+        )
+        db.session.add(user)
+        if not Customer.query.filter_by(email=email).first():
+            customer = Customer(
+                name    = name,
+                email   = email,
+                plan_id = int(plan_id) if plan_id else None
+            )
+            db.session.add(customer)
+        db.session.commit()
+        login_user(user)
+        return redirect(url_for('customer_dashboard'))
+    plans = Plan.query.all()
+    return render_template('register.html', plans=plans)
+
+@app.route('/logout')
+def logout():
+    logout_user()
+    return redirect(url_for('index'))
+
+# ── Customer Routes ───────────────────────────────────────────
+@app.route('/my-dashboard')
+@customer_required
+def customer_dashboard():
+    customer = Customer.query.filter_by(email=current_user.email).first()
+    invoices = Invoice.query.filter_by(customer_id=customer.id).all() if customer else []
+    return render_template('customer_dashboard.html',
+        customer=customer, invoices=invoices, user=current_user)
+
+@app.route('/my-invoices')
+@customer_required
+def my_invoices():
+    customer = Customer.query.filter_by(email=current_user.email).first()
+    invoices = Invoice.query.filter_by(
+        customer_id=customer.id).order_by(
+        Invoice.issued_date.desc()).all() if customer else []
+    return render_template('my_invoices.html',
+        invoices=invoices, customer=customer)
+
 @app.route('/checkout/<int:inv_id>')
+@customer_required
 def checkout(inv_id):
-    inv = Invoice.query.get_or_404(inv_id)
-    session = stripe.checkout.Session.create(
+    inv            = Invoice.query.get_or_404(inv_id)
+    stripe_session = stripe.checkout.Session.create(
         payment_method_types=['card'],
         line_items=[{
             'price_data': {
@@ -131,12 +286,30 @@ def checkout(inv_id):
         }],
         mode='payment',
         success_url=request.host_url + f'pay/{inv_id}',
-        cancel_url=request.host_url + 'billing',
+        cancel_url=request.host_url + 'my-invoices',
     )
-    return redirect(session.url)
+    return redirect(stripe_session.url)
+
+@app.route('/pay/<int:inv_id>')
+@login_required
+def pay_success(inv_id):
+    inv           = Invoice.query.get_or_404(inv_id)
+    inv.status    = 'paid'
+    inv.paid_date = datetime.utcnow()
+    db.session.commit()
+    return redirect(url_for('my_invoices'))
+
+# ── Seed ──────────────────────────────────────────────────────
 @app.route('/seed')
 def seed():
     db.drop_all(); db.create_all()
+    admin = User(
+        name          = 'BillZap Admin',
+        email         = 'admin@billzap.com',
+        password_hash = generate_password_hash('Admin@1234'),
+        role          = 'admin'
+    )
+    db.session.add(admin)
     plans = [
         Plan(name='Starter',    price=9.99,  interval='monthly', features='5 users, 10GB storage, Email support'),
         Plan(name='Pro',        price=29.99, interval='monthly', features='25 users, 100GB storage, Priority support'),
@@ -150,20 +323,28 @@ def seed():
         Customer(name='David Lee',     email='david@example.com', plan_id=plans[1].id),
     ]
     db.session.add_all(customers); db.session.flush()
+    # Customer user accounts
     for c in customers:
+        user = User(
+            name          = c.name,
+            email         = c.email,
+            password_hash = generate_password_hash('Test@1234'),
+            role          = 'customer'
+        )
+        db.session.add(user)
         for i in range(3):
             inv = Invoice(
                 invoice_no  = 'INV-' + ''.join(random.choices(string.digits, k=6)),
                 customer_id = c.id,
                 amount      = c.plan.price,
-                status      = random.choice(['paid','paid','pending']),
+                status      = random.choice(['paid', 'paid', 'pending']),
                 issued_date = datetime.utcnow() - timedelta(days=30*i),
                 due_date    = datetime.utcnow() - timedelta(days=30*i - 30))
             if inv.status == 'paid':
-                inv.paid_date = inv.issued_date + timedelta(days=random.randint(1,10))
+                inv.paid_date = inv.issued_date + timedelta(days=random.randint(1, 10))
             db.session.add(inv)
     db.session.commit()
-    return redirect('/')
+    return redirect(url_for('index'))
 
 if __name__ == '__main__':
     app.run(debug=True)

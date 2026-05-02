@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>BillZap — Login</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background: #1a1a2e; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+    .login-card { background: #fff; border-radius: 16px; padding: 40px; width: 100%; max-width: 420px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+    .brand { color: #667eea; font-size: 28px; font-weight: 700; text-align: center; margin-bottom: 8px; }
+    .brand span { color: #1a1a2e; }
+    .subtitle { text-align: center; color: #888; margin-bottom: 30px; font-size: 14px; }
+    .btn-login { background: linear-gradient(135deg, #667eea, #764ba2); border: none; width: 100%; padding: 12px; border-radius: 8px; color: white; font-weight: 600; font-size: 16px; }
+    .btn-login:hover { opacity: 0.9; color: white; }
+    .form-control:focus { border-color: #667eea; box-shadow: 0 0 0 0.2rem rgba(102,126,234,.25); }
+    .divider { text-align: center; color: #ccc; margin: 20px 0; }
+    .register-link { text-align: center; margin-top: 20px; font-size: 14px; }
+    .register-link a { color: #667eea; text-decoration: none; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="login-card">
+    <div class="brand">☁ Bill<span>Zap</span></div>
+    <div class="subtitle">Cloud Subscription Billing Platform</div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} py-2">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <form method="POST">
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Email Address</label>
+        <input type="email" name="email" class="form-control" placeholder="Enter your email" required>
+      </div>
+      <div class="mb-4">
+        <label class="form-label fw-semibold">Password</label>
+        <input type="password" name="password" class="form-control" placeholder="Enter your password" required>
+      </div>
+      <button type="submit" class="btn btn-login">Sign In</button>
+    </form>
+
+    <div class="divider">— or —</div>
+
+    <div class="register-link">
+      Don't have an account? <a href="/register">Create one free</a>
+    </div>
+
+    <div class="mt-4 p-3 bg-light rounded" style="font-size:13px;">
+      <strong>Admin Login:</strong><br>
+      Email: admin@billzap.com<br>
+      Password: Admin@1234
+    </div>
+  </div>
+</body>
+</html>

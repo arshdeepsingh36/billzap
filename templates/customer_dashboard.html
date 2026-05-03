@@ -17,19 +17,30 @@
     .stat-card.orange { background: linear-gradient(135deg, #f7971e, #ffd200); color: #1a1a2e; }
     .plan-badge { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; }
     .invoice-row:hover { background: #f8f0ff; }
+    .upgrade-banner { background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-radius: 16px; padding: 24px; margin-bottom: 24px; }
+    .btn-upgrade { background: white; color: #667eea; border: none; padding: 10px 24px; border-radius: 50px; font-weight: 700; font-size: 14px; }
+    .btn-upgrade:hover { background: #f0f0ff; color: #764ba2; }
   </style>
 </head>
 <body>
   <div class="topbar">
     <div class="brand">☁ Bill<span>Zap</span></div>
     <div class="nav-links">
-      <a href="/my-dashboard">🏠 Dashboard</a>
-      <a href="/my-invoices">🧾 My Invoices</a>
+      <a href="/my-dashboard" style="color:#fff;">🏠 Dashboard</a>
+      <a href="/content">📚 Content</a>
+      <a href="/my-invoices">🧾 Invoices</a>
       <a href="/logout">🚪 Logout</a>
     </div>
   </div>
 
   <div class="container py-4">
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} py-2">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+
     <div class="d-flex justify-content-between align-items-center mb-4">
       <div>
         <h4 class="mb-1">Welcome back, {{ user.name }}! 👋</h4>
@@ -44,7 +55,7 @@
     <div class="alert alert-warning d-flex align-items-center gap-3 mb-4">
       <span style="font-size:24px;">⚠️</span>
       <div>
-        <strong>Payment Required!</strong> You have {{ pending_invoices|length }} pending invoice(s).
+        <strong>Payment Due!</strong> You have {{ pending_invoices|length }} pending invoice(s).
         <a href="/my-invoices" class="btn btn-sm btn-warning ms-2">Pay Now</a>
       </div>
     </div>
@@ -74,6 +85,38 @@
       </div>
     </div>
 
+    <!-- Quick Actions -->
+    <div class="row g-3 mb-4">
+      <div class="col-md-3">
+        <a href="/content" class="card p-3 text-decoration-none text-center d-block">
+          <div style="font-size:32px;">📚</div>
+          <div class="fw-bold mt-1">My Content</div>
+          <div class="text-muted" style="font-size:12px;">Access your resources</div>
+        </a>
+      </div>
+      <div class="col-md-3">
+        <a href="/my-invoices" class="card p-3 text-decoration-none text-center d-block">
+          <div style="font-size:32px;">🧾</div>
+          <div class="fw-bold mt-1">My Invoices</div>
+          <div class="text-muted" style="font-size:12px;">View & pay invoices</div>
+        </a>
+      </div>
+      <div class="col-md-3">
+        <a href="/my-invoices" class="card p-3 text-decoration-none text-center d-block">
+          <div style="font-size:32px;">💳</div>
+          <div class="fw-bold mt-1">Billing History</div>
+          <div class="text-muted" style="font-size:12px;">Past payments</div>
+        </a>
+      </div>
+      <div class="col-md-3">
+        <a href="/content" class="card p-3 text-decoration-none text-center d-block">
+          <div style="font-size:32px;">⚡</div>
+          <div class="fw-bold mt-1">Upgrade Plan</div>
+          <div class="text-muted" style="font-size:12px;">Get more features</div>
+        </a>
+      </div>
+    </div>
+
     <div class="row g-3">
       <div class="col-md-4">
         <div class="card p-4">
@@ -88,6 +131,7 @@
             <div class="mb-1">✓ {{ f.strip() }}</div>
             {% endfor %}
           </div>
+          <a href="/content" class="btn btn-outline-primary btn-sm w-100 mt-3">📚 Access Content</a>
           {% else %}
           <div class="text-muted">No plan assigned yet.</div>
           {% endif %}

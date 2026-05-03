@@ -4,3 +4,4 @@ flask-login
 werkzeug
 gunicorn
 stripe
+psycopg2-binary

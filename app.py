@@ -8,8 +8,7 @@ import random, string, os, functools
 import stripe
 
 app = Flask(__name__)
-db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'billing.db')
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres.ckkdeanetcbobirktpgt:YOURPASSWORD@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres'
 app.config['SECRET_KEY'] = 'billzap-secret-key-2026'
 db = SQLAlchemy(app)
 stripe.api_key = 'sk_test_51TNXTaJB7ze9VgSgonG2TAxTMJIw6M0YFDKiwKAZu8MlK1cYj1ckBLgalgWlsR0kiGBkLGBExLXmekmO8CMuexmY003Bez9qXb'

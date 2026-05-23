@@ -3,6 +3,7 @@
 <head>
   <title>Plans</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/static/billing-ui.css" rel="stylesheet">
   <style>
     body{background:#f8f9fa;}
     .sidebar{background:#1a1a2e;min-height:100vh;padding:20px;}
@@ -15,14 +16,14 @@
 <body>
 <div class="d-flex">
   <div class="sidebar" style="width:220px;min-width:220px;">
-    <h4>☁ BillCloud</h4>
-    <a href="/admin/dashboard">📊 Dashboard</a>
-    <a href="/admin/plans" style="background:#16213e;color:#fff;">📦 Plans</a>
-    <a href="/admin/customers">👥 Customers</a>
-    <a href="/admin/billing">💳 Billing</a>
-    <a href="/admin/reports">📈 Reports</a>
+    <h4>BillZap</h4>
+    <a href="/admin/dashboard">Dashboard</a>
+    <a href="/admin/plans" style="background:#16213e;color:#fff;">Plans</a>
+    <a href="/admin/customers">Customers</a>
+    <a href="/admin/billing">Billing</a>
+    <a href="/admin/reports">Reports</a>
     <hr style="border-color:#333; margin:20px 0;">
-    <a href="/admin/logout" style="color:#f45c43;">🚪 Logout</a>
+    <a href="/admin/logout" style="color:#f45c43;">Logout</a>
 </div>
   <div class="flex-grow-1 p-4">
     <h2 class="mb-4">Subscription Plans</h2>
@@ -41,6 +42,7 @@
           <div class="col-md-4"><input name="features" class="form-control" placeholder="Features (comma separated)"></div>
           <div class="col-md-1"><button class="btn btn-primary w-100">Add</button></div>
         </div>
+        <div class="text-muted mt-2" style="font-size:13px;">Yearly billing is shown with 10% off the monthly total.</div>
       </form>
     </div>
     <div class="row g-3">
@@ -48,10 +50,16 @@
       <div class="col-md-4">
         <div class="card p-4 text-center">
           <h5>{{ plan.name }}</h5>
-          <div style="font-size:32px;font-weight:700;color:#667eea;">${{ plan.price }}</div>
+          <div style="font-size:32px;font-weight:700;color:#12633f;">${{ plan.price }}</div>
           <div class="text-muted mb-3">per {{ plan.interval }}</div>
+          {% set yearly_price = plan.price * 12 * 0.9 %}
+          <div class="p-3 mb-3 rounded" style="background:rgba(28,140,90,.10);">
+            <div class="fw-bold" style="color:#12633f;">Yearly Plan</div>
+            <div style="font-size:24px;font-weight:800;color:#12633f;">${{ "%.2f"|format(yearly_price) }}</div>
+            <div class="text-muted" style="font-size:13px;">per year with 10% off</div>
+          </div>
           {% for f in plan.features.split(',') %}
-          <div class="mb-1">✓ {{ f.strip() }}</div>
+          <div class="mb-1"> {{ f.strip() }}</div>
           {% endfor %}
         </div>
       </div>

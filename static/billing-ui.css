@@ -1,0 +1,183 @@
+:root {
+  --ink: #13201a;
+  --muted: #66736c;
+  --line: #dfe7e2;
+  --paper: #ffffff;
+  --canvas: #f4f7f3;
+  --nav: #0f2f25;
+  --nav-2: #174536;
+  --money: #1c8c5a;
+  --money-dark: #12633f;
+  --gold: #d89a22;
+  --danger: #c84630;
+}
+
+* {
+  letter-spacing: 0;
+}
+
+body {
+  background:
+    radial-gradient(circle at top left, rgba(28, 140, 90, 0.08), transparent 32rem),
+    var(--canvas) !important;
+  color: var(--ink);
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+}
+
+.navbar,
+.topbar,
+.sidebar {
+  background: linear-gradient(180deg, var(--nav), #0b211a) !important;
+}
+
+.brand,
+.navbar-brand,
+.sidebar h4 {
+  color: #fff !important;
+  font-weight: 800 !important;
+}
+
+.brand span,
+.navbar-brand span,
+.sidebar h4 span {
+  color: #62d18f !important;
+}
+
+.nav-link,
+.topbar .nav-links a,
+.sidebar a {
+  color: rgba(255, 255, 255, 0.72) !important;
+}
+
+.nav-link:hover,
+.topbar .nav-links a:hover,
+.sidebar a:hover,
+.sidebar a.active {
+  background: rgba(255, 255, 255, 0.09) !important;
+  color: #fff !important;
+}
+
+.card,
+.login-card,
+.register-card,
+.plan-card,
+.feature-box,
+.content-card {
+  border: 1px solid var(--line) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 30px rgba(20, 45, 31, 0.08) !important;
+}
+
+.card,
+.login-card,
+.register-card,
+.feature-box,
+.content-card {
+  background: var(--paper) !important;
+}
+
+.btn-primary,
+.btn-success,
+.btn-login,
+.btn-admin,
+.btn-register,
+.btn-hero,
+.btn-pay {
+  background: linear-gradient(135deg, var(--money), var(--money-dark)) !important;
+  border-color: var(--money-dark) !important;
+  color: #fff !important;
+  border-radius: 8px !important;
+  font-weight: 700 !important;
+}
+
+.btn-outline-primary,
+.btn-outline-success,
+.btn-outline-hero {
+  border-color: var(--money) !important;
+  color: var(--money-dark) !important;
+  border-radius: 8px !important;
+}
+
+.btn-outline-primary:hover,
+.btn-outline-success:hover,
+.btn-outline-hero:hover {
+  background: var(--money) !important;
+  color: #fff !important;
+}
+
+.badge.bg-primary {
+  background: rgba(28, 140, 90, 0.14) !important;
+  color: var(--money-dark) !important;
+}
+
+.badge.bg-success,
+.status-paid {
+  background: rgba(28, 140, 90, 0.16) !important;
+  color: var(--money-dark) !important;
+}
+
+.badge.bg-warning,
+.status-pending {
+  background: rgba(216, 154, 34, 0.18) !important;
+  color: #845a0e !important;
+}
+
+.stat-card,
+.stat-card.green,
+.stat-card.orange,
+.stat-card.red,
+.stat-card.purple,
+.upgrade-banner,
+.plan-card.featured {
+  background: linear-gradient(135deg, #123f31, #1c8c5a) !important;
+  color: #fff !important;
+}
+
+.money-panel {
+  background: linear-gradient(135deg, #0f2f25, #1c8c5a);
+  color: #fff;
+  border-radius: 8px;
+  padding: 28px;
+}
+
+.hero {
+  background:
+    linear-gradient(rgba(10, 38, 29, 0.86), rgba(10, 38, 29, 0.86)),
+    url("https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=1800&q=80") center/cover !important;
+  color: #fff;
+}
+
+.hero h1 span,
+.price,
+.section-title,
+.text-primary {
+  color: var(--money-dark) !important;
+}
+
+.hero h1 span {
+  color: #78e1a3 !important;
+}
+
+.table thead th {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.table td,
+.table th {
+  vertical-align: middle;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--money) !important;
+  box-shadow: 0 0 0 0.2rem rgba(28, 140, 90, 0.18) !important;
+}
+
+.kicker {
+  color: #62d18f;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}

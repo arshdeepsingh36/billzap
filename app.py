@@ -8,7 +8,7 @@ import random, string, os, functools
 import stripe
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres.ckkdeanetcbobirktpgt:69_Y4?MxDW_96mP@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///billing.db')
 app.config['SECRET_KEY'] = 'billzap-secret-key-2026'
 db = SQLAlchemy(app)
 stripe.api_key = 'sk_test_51TNXTaJB7ze9VgSgonG2TAxTMJIw6M0YFDKiwKAZu8MlK1cYj1ckBLgalgWlsR0kiGBkLGBExLXmekmO8CMuexmY003Bez9qXb'
@@ -185,12 +185,47 @@ def reports():
     customers = Customer.query.all()
     plans     = Plan.query.all()
     monthly   = {}
+    plan_report = {}
+    paid_invoices = []
+    unpaid_invoices = []
     for inv in invoices:
         key = inv.issued_date.strftime('%b %Y')
-        monthly[key] = monthly.get(key, 0) + (inv.amount if inv.status == 'paid' else 0)
+        if key not in monthly:
+            monthly[key] = {'paid': 0, 'unpaid': 0, 'total': 0, 'count': 0}
+        monthly[key]['total'] += inv.amount
+        monthly[key]['count'] += 1
+        if inv.status == 'paid':
+            monthly[key]['paid'] += inv.amount
+            paid_invoices.append(inv)
+        else:
+            monthly[key]['unpaid'] += inv.amount
+            unpaid_invoices.append(inv)
+
+        plan_name = inv.customer.plan.name if inv.customer and inv.customer.plan else 'No Plan'
+        if plan_name not in plan_report:
+            plan_report[plan_name] = {'paid': 0, 'unpaid': 0, 'total': 0, 'count': 0}
+        plan_report[plan_name]['total'] += inv.amount
+        plan_report[plan_name]['count'] += 1
+        if inv.status == 'paid':
+            plan_report[plan_name]['paid'] += inv.amount
+        else:
+            plan_report[plan_name]['unpaid'] += inv.amount
+
+    for customer in customers:
+        plan_name = customer.plan.name if customer.plan else 'No Plan'
+        if plan_name not in plan_report:
+            plan_report[plan_name] = {'paid': 0, 'unpaid': 0, 'total': 0, 'count': 0}
+        plan_report[plan_name]['users'] = plan_report[plan_name].get('users', 0) + 1
+
+    for row in plan_report.values():
+        row['users'] = row.get('users', 0)
+
+    monthly_paid = {month: row['paid'] for month, row in monthly.items()}
     return render_template('reports.html',
         invoices=invoices, customers=customers,
-        plans=plans, monthly=monthly)
+        plans=plans, monthly=monthly, monthly_paid=monthly_paid,
+        plan_report=plan_report, paid_invoices=paid_invoices,
+        unpaid_invoices=unpaid_invoices)
 
 @app.route('/admin/pay/<int:inv_id>')
 @admin_required

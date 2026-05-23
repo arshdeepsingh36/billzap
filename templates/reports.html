@@ -3,6 +3,7 @@
 <head>
   <title>Reports</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/static/billing-ui.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
     body{background:#f8f9fa;}
@@ -11,77 +12,210 @@
     .sidebar a:hover{background:#16213e;color:#fff;}
     .sidebar h4{color:#fff;padding:10px 15px;margin-bottom:20px;font-size:18px;}
     .card{border:none;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.06);}
+    .report-title{font-weight:800;color:#13201a;margin-bottom:14px;}
+    .amount-paid{color:#12633f;font-weight:800;}
+    .amount-unpaid{color:#9b6810;font-weight:800;}
+    .summary-card{transition:transform .15s ease, box-shadow .15s ease;}
+    .summary-card:hover{transform:translateY(-2px);box-shadow:0 14px 34px rgba(20,45,31,.12)!important;}
+    .details-link{font-size:12px;font-weight:800;text-decoration:none;color:#12633f;}
+    .help-text{font-size:12px;color:#66736c;margin-top:4px;}
+    .report-tabs{display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid #dfe7e2;margin-bottom:16px;}
+    .report-tab{border:0;background:transparent;color:#66736c;font-weight:800;padding:10px 12px;border-bottom:3px solid transparent;}
+    .report-tab.active{color:#12633f;border-color:#12633f;}
+    .tab-pane-custom{display:none;}
+    .tab-pane-custom.active{display:block;}
+    .chart-box{position:relative;height:280px;}
   </style>
 </head>
 <body>
 <div class="d-flex">
  <div class="sidebar" style="width:220px;min-width:220px;">
-    <h4>☁ BillCloud</h4>
-    <a href="/admin/dashboard">📊 Dashboard</a>
-    <a href="/admin/plans">📦 Plans</a>
-    <a href="/admin/customers">👥 Customers</a>
-    <a href="/admin/billing">💳 Billing</a>
-    <a href="/admin/reports" style="background:#16213e;color:#fff;">📈 Reports</a>
+    <h4>BillZap</h4>
+    <a href="/admin/dashboard">Dashboard</a>
+    <a href="/admin/plans">Plans</a>
+    <a href="/admin/customers">Customers</a>
+    <a href="/admin/billing">Billing</a>
+    <a href="/admin/reports" style="background:#16213e;color:#fff;">Reports</a>
     <hr style="border-color:#333; margin:20px 0;">
-    <a href="/admin/logout" style="color:#f45c43;">🚪 Logout</a>
+    <a href="/admin/logout" style="color:#f45c43;">Logout</a>
 </div>
   <div class="flex-grow-1 p-4">
     <h2 class="mb-4">Reports & Analytics</h2>
     <div class="row g-3 mb-4">
       <div class="col-md-4">
-        <div class="card p-3 text-center">
+        <div class="card p-3 text-center summary-card" title="Paid total from all invoices marked paid.">
           <div class="text-muted mb-1">Total Paid</div>
           <div style="font-size:24px;font-weight:700;color:#11998e;">
             ${{ "%.2f"|format(invoices|selectattr('status','eq','paid')|sum(attribute='amount')) }}
           </div>
+          <a href="#paid-report" class="details-link mt-2">View Details</a>
         </div>
       </div>
       <div class="col-md-4">
-        <div class="card p-3 text-center">
+        <div class="card p-3 text-center summary-card" title="Unpaid total from invoices still pending collection.">
           <div class="text-muted mb-1">Total Pending</div>
           <div style="font-size:24px;font-weight:700;color:#f7971e;">
             ${{ "%.2f"|format(invoices|selectattr('status','eq','pending')|sum(attribute='amount')) }}
           </div>
+          <a href="#unpaid-report" class="details-link mt-2">View Details</a>
         </div>
       </div>
       <div class="col-md-4">
-        <div class="card p-3 text-center">
+        <div class="card p-3 text-center summary-card" title="Total active customer records in the billing system.">
           <div class="text-muted mb-1">Total Customers</div>
-          <div style="font-size:24px;font-weight:700;color:#667eea;">{{ customers|length }}</div>
+          <div style="font-size:24px;font-weight:700;color:#12633f;">{{ customers|length }}</div>
+          <a href="#plan-report" class="details-link mt-2">View Details</a>
         </div>
       </div>
     </div>
-    <div class="card p-4 mb-4">
-      <h6 class="mb-3">Monthly Revenue</h6>
-      <div style="position:relative;height:280px;">
-        <canvas id="revChart"></canvas>
+
+    <div class="card p-3 mb-4" id="visual-details">
+      <h6 class="report-title">Visual Reports</h6>
+      <div class="report-tabs">
+        <button class="report-tab active" type="button" data-report-tab="monthly-visuals">Monthly</button>
+        <button class="report-tab" type="button" data-report-tab="plan-visuals">Plan Wise</button>
+      </div>
+
+      <div class="tab-pane-custom active" id="monthly-visuals">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <h6 class="mb-1">Monthly Revenue</h6>
+            <div class="help-text mb-3">Paid revenue by month.</div>
+            <div class="chart-box"><canvas id="revChart"></canvas></div>
+            <a href="#monthly-report" class="details-link mt-3">View Monthly Details</a>
+          </div>
+          <div class="col-md-6">
+            <h6 class="mb-1">Monthly Unpaid</h6>
+            <div class="help-text mb-3">Pending amount by month.</div>
+            <div class="chart-box"><canvas id="monthlyUnpaidChart"></canvas></div>
+            <a href="#unpaid-report" class="details-link mt-3">View Unpaid Details</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-pane-custom" id="plan-visuals">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <h6 class="mb-1">Plan Wise Users</h6>
+            <div class="help-text mb-3">Customer count by plan.</div>
+            <div class="chart-box"><canvas id="planUsersChart"></canvas></div>
+            <a href="#plan-report" class="details-link mt-3">View Plan Details</a>
+          </div>
+          <div class="col-md-6">
+            <h6 class="mb-1">Plan Wise Revenue</h6>
+            <div class="help-text mb-3">Total billing by plan.</div>
+            <div class="chart-box"><canvas id="planChart"></canvas></div>
+            <a href="#plan-report" class="details-link mt-3">View Plan Details</a>
+          </div>
+        </div>
       </div>
     </div>
-    <div class="card p-3">
-      <h6 class="mb-3">Invoice Log</h6>
-      <table class="table table-sm">
-        <thead>
-          <tr><th>Invoice</th><th>Customer</th><th>Plan</th><th>Amount</th><th>Status</th><th>Date</th></tr>
-        </thead>
-        <tbody>
-        {% for inv in invoices %}
-        <tr>
-          <td>{{ inv.invoice_no }}</td>
-          <td>{{ inv.customer.name }}</td>
-          <td>{{ inv.customer.plan.name if inv.customer.plan else '-' }}</td>
-          <td>${{ "%.2f"|format(inv.amount) }}</td>
-          <td><span class="badge bg-{{ 'success' if inv.status=='paid' else 'warning text-dark' }}">{{ inv.status }}</span></td>
-          <td>{{ inv.issued_date.strftime('%d %b %Y') }}</td>
-        </tr>
-        {% endfor %}
-        </tbody>
-      </table>
+
+    <div class="row g-3 mb-4">
+      <div class="col-md-6">
+        <div class="card p-3 h-100" id="plan-report" title="Breakdown of paid, unpaid, and total invoice amount for each plan.">
+          <h6 class="report-title">Plan Wise Report</h6>
+          <table class="table table-sm">
+            <thead>
+              <tr><th>Plan</th><th>Invoices</th><th>Paid</th><th>Unpaid</th><th>Total</th></tr>
+            </thead>
+            <tbody>
+            {% for plan_name, row in plan_report.items() %}
+              <tr>
+                <td><strong>{{ plan_name }}</strong></td>
+                <td>{{ row.count }}</td>
+                <td class="amount-paid">${{ "%.2f"|format(row.paid) }}</td>
+                <td class="amount-unpaid">${{ "%.2f"|format(row.unpaid) }}</td>
+                <td>${{ "%.2f"|format(row.total) }}</td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card p-3 h-100" id="monthly-report" title="Month-wise invoice count, paid amount, unpaid amount, and total billed amount.">
+          <h6 class="report-title">Monthly Report</h6>
+          <table class="table table-sm">
+            <thead>
+              <tr><th>Month</th><th>Invoices</th><th>Paid</th><th>Unpaid</th><th>Total</th></tr>
+            </thead>
+            <tbody>
+            {% for month, row in monthly.items() %}
+              <tr>
+                <td><strong>{{ month }}</strong></td>
+                <td>{{ row.count }}</td>
+                <td class="amount-paid">${{ "%.2f"|format(row.paid) }}</td>
+                <td class="amount-unpaid">${{ "%.2f"|format(row.unpaid) }}</td>
+                <td>${{ "%.2f"|format(row.total) }}</td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-md-6">
+        <div class="card p-3 h-100" id="paid-report" title="Invoices that have been collected and marked paid.">
+          <h6 class="report-title">Paid Invoices</h6>
+          <table class="table table-sm">
+            <thead>
+              <tr><th>Invoice</th><th>Customer</th><th>Plan</th><th>Amount</th><th>Paid Date</th></tr>
+            </thead>
+            <tbody>
+            {% for inv in paid_invoices %}
+              <tr>
+                <td>{{ inv.invoice_no }}</td>
+                <td>{{ inv.customer.name }}</td>
+                <td>{{ inv.customer.plan.name if inv.customer.plan else '-' }}</td>
+                <td class="amount-paid">${{ "%.2f"|format(inv.amount) }}</td>
+                <td>{{ inv.paid_date.strftime('%d %b %Y') if inv.paid_date else '-' }}</td>
+              </tr>
+            {% endfor %}
+            {% if not paid_invoices %}
+              <tr><td colspan="5" class="text-center text-muted py-3">No paid invoices</td></tr>
+            {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card p-3 h-100" id="unpaid-report" title="Invoices that are still pending payment.">
+          <h6 class="report-title">Unpaid Invoices</h6>
+          <table class="table table-sm">
+            <thead>
+              <tr><th>Invoice</th><th>Customer</th><th>Plan</th><th>Amount</th><th>Due Date</th></tr>
+            </thead>
+            <tbody>
+            {% for inv in unpaid_invoices %}
+              <tr>
+                <td>{{ inv.invoice_no }}</td>
+                <td>{{ inv.customer.name }}</td>
+                <td>{{ inv.customer.plan.name if inv.customer.plan else '-' }}</td>
+                <td class="amount-unpaid">${{ "%.2f"|format(inv.amount) }}</td>
+                <td>{{ inv.due_date.strftime('%d %b %Y') if inv.due_date else '-' }}</td>
+              </tr>
+            {% endfor %}
+            {% if not unpaid_invoices %}
+              <tr><td colspan="5" class="text-center text-muted py-3">No unpaid invoices</td></tr>
+            {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 <script>
-  const labels = {{ monthly.keys()|list|tojson }};
-  const data   = {{ monthly.values()|list|tojson }};
+  const labels = {{ monthly_paid.keys()|list|tojson }};
+  const data   = {{ monthly_paid.values()|list|tojson }};
+  const monthlyUnpaid = {{ monthly.values()|map(attribute='unpaid')|list|tojson }};
+  const planLabels = {{ plan_report.keys()|list|tojson }};
+  const planTotals = {{ plan_report.values()|map(attribute='total')|list|tojson }};
+  const planUsers = {{ plan_report.values()|map(attribute='users')|list|tojson }};
   new Chart(document.getElementById('revChart'), {
     type: 'bar',
     data: {
@@ -89,15 +223,90 @@
       datasets:[{
         label: 'Revenue ($)',
         data,
-        backgroundColor: '#667eea',
+        backgroundColor: '#12633f',
         borderRadius: 6
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins:{ legend:{ display:false } }
+      plugins:{
+        legend:{ display:false },
+        tooltip:{ callbacks:{ label: ctx => `Paid revenue: $${ctx.parsed.y.toFixed(2)}` } }
+      }
     }
+  });
+
+  new Chart(document.getElementById('monthlyUnpaidChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets:[{
+        label: 'Unpaid ($)',
+        data: monthlyUnpaid,
+        backgroundColor: '#d89a22',
+        borderRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins:{
+        legend:{ display:false },
+        tooltip:{ callbacks:{ label: ctx => `Unpaid: $${ctx.parsed.y.toFixed(2)}` } }
+      }
+    }
+  });
+
+  new Chart(document.getElementById('planUsersChart'), {
+    type: 'bar',
+    data: {
+      labels: planLabels,
+      datasets:[{
+        label: 'Users',
+        data: planUsers,
+        backgroundColor: '#12633f',
+        borderRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins:{
+        legend:{ display:false },
+        tooltip:{ callbacks:{ label: ctx => `Users: ${ctx.parsed.y}` } }
+      }
+    }
+  });
+
+  new Chart(document.getElementById('planChart'), {
+    type: 'bar',
+    data: {
+      labels: planLabels,
+      datasets:[{
+        label: 'Total billing ($)',
+        data: planTotals,
+        backgroundColor: '#1c8c5a',
+        borderRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins:{
+        legend:{ display:false },
+        tooltip:{ callbacks:{ label: ctx => `Plan total: $${ctx.parsed.y.toFixed(2)}` } }
+      }
+    }
+  });
+
+  document.querySelectorAll('[data-report-tab]').forEach((button) => {
+    button.addEventListener('click', () => {
+      document.querySelectorAll('[data-report-tab]').forEach((tab) => tab.classList.remove('active'));
+      document.querySelectorAll('.tab-pane-custom').forEach((pane) => pane.classList.remove('active'));
+      button.classList.add('active');
+      document.getElementById(button.dataset.reportTab).classList.add('active');
+    });
   });
 </script>
 </body>
